@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-PT">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,26 +10,30 @@
         h1, h2 { color: #2c3e50; }
         label { font-weight: bold; display: block; margin-top: 10px; }
         input, select, button { width: 100%; padding: 10px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc; box-sizing: border-box; }
-        button { background-color: #3498db; color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 15px; }
+        button { background-color: #3498db; color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 15px; padding: 15px; font-size: 16px; transition: 0.3s;}
         button:hover { background-color: #2980b9; }
         .question-block { margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
-        .option { margin: 8px 0; padding: 10px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; }
+        .option { margin: 8px 0; padding: 10px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; display: block;}
         .option:hover { background: #eef; }
         .option input { width: auto; margin-right: 10px; }
         .feedback { margin-top: 10px; padding: 15px; border-radius: 5px; display: none; }
         .correct { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .incorrect { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        #loading { display: none; text-align: center; font-weight: bold; color: #e67e22; }
+        #loading { display: none; text-align: center; font-weight: bold; color: #e67e22; padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);}
+        #error-msg { display: none; background-color: #f8d7da; color: #721c24; padding: 15px; border-radius: 5px; margin-bottom: 15px; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <h1>Simulador TJSC Infinito ⚖️</h1>
 
+    <div id="error-msg"></div>
+
     <div class="card" id="config-panel">
         <h2>Configuração da Bateria</h2>
         <label for="apiKey">Chave da API do Gemini:</label>
-        <input type="password" id="apiKey" placeholder="Cole a sua chave de API aqui" />
+        <input type="password" id="apiKey" placeholder="Cole sua chave de API aqui" />
+        <small style="color: #666;">Sua chave será salva no seu navegador para as próximas sessões.</small>
 
         <label for="subject">Matéria do Edital:</label>
         <select id="subject">
@@ -52,14 +56,228 @@
         <button onclick="iniciarSimulado()">Gerar e Iniciar Simulado</button>
     </div>
 
-    <div id="loading">A ligar ao Gemini e a elaborar questões da FGV com base no edital... Aguarde.</div>
+    <div id="loading">Conectando ao Gemini e elaborando questões da FGV com base no edital... Aguarde alguns segundos.</div>
 
     <div class="card" id="quiz-panel" style="display: none;">
-        <h2>As Suas Questões</h2>
+        <h2>Suas Questões</h2>
         <div id="questions-container"></div>
         <button onclick="corrigirSimulado()" id="btn-corrigir">Corrigir Simulado</button>
+        <button onclick="location.reload()" id="btn-novo" style="display: none; background-color: #27ae60;">Fazer Novo Simulado</button>
     </div>
 
-    <script src="app.js"></script>
+    <script>
+        // 1. Dicionário do Edital (Rigoroso para Técnico Judiciário Auxiliar)
+        const editalTJSC = {
+            "Língua Portuguesa": "Compreensão e interpretação de textos. Tipos e gêneros textuais. Ortografia e acentuação oficial. Mecanismos de coesão textual. Gramática prática (concordância, pontuação, crase). Reescritura e adaptação de textos.",
+            "Legislação Institucional do PJSC": "Organização e funcionamento do Poder Judiciário de Santa Catarina. Regimento Interno do TJSC. Normas da Corregedoria-Geral da Justiça. Regime jurídico e disciplinar dos servidores.",
+            "Ética e Gestão no Serviço Público": "Princípios básicos da Administração Pública (legalidade, moralidade, interesse público, integridade). Deveres e responsabilidades do servidor.",
+            "Noções de Informática e Proteção de Dados": "Fundamentos de informática. Segurança da informação. Proteção de dados pessoais. Lei nº 13.709/2018 (LGPD) e Resolução TJ nº 3/2021.",
+            "Direitos Humanos e Acesso à Justiça": "Princípios básicos dos direitos humanos. Proteção internacional e constitucional. Acesso à justiça e garantias processuais. Grupos vulneráveis.",
+            "Noções de Direito Administrativo": "Organização administrativa (direta, indireta, centralizada, descentralizada). Princípios expressos e implícitos. Órgãos e agentes públicos. Poderes e Atos administrativos. Lei nº 14.133/2021 (Licitações). Estrutura administrativa do TJSC.",
+            "Noções de Direito Constitucional": "CF/88: Princípios fundamentais, Direitos e garantias fundamentais. Organização político-administrativa. Administração pública. Poder Judiciário (competências e estrutura do TJSC). Funções essenciais à Justiça. Conselho Nacional de Justiça (CNJ).",
+            "Noções de Direito Civil": "Lei de Introdução às Normas do Direito Brasileiro. Pessoas naturais e jurídicas. Bens. Fatos e negócios jurídicos. Obrigações e Contratos. Responsabilidade civil.",
+            "Noções de Direito Processual Civil": "CPC/2015. Princípio do devido processo legal, contraditório e ampla defesa. Pressupostos processuais. Jurisdição e Ação. Carta rogatória e auxílio direto. Competência.",
+            "Noções de Direito Penal": "Código Penal. Princípios da legalidade e anterioridade. Lei penal no tempo e espaço. Teoria do crime (ilicitude, culpabilidade). Crimes contra a pessoa, patrimônio e administração pública. Crimes hediondos. Abuso de autoridade. ECA. Resolução TJ n. 35/2025 (Competência varas criminais).",
+            "Noções de Direito Processual Penal": "CPP. Inquérito policial e Ação penal. Sujeitos do processo. Citações e intimações. Sentença. Processo comum e Instrução criminal. Tribunal do Júri. Prisão e liberdade provisória. Habeas corpus."
+        };
+
+        // 2. Preencher a chave automaticamente ao carregar a página
+        document.addEventListener("DOMContentLoaded", () => {
+            const chaveSalva = localStorage.getItem('tjscApiKey');
+            if (chaveSalva) {
+                document.getElementById('apiKey').value = chaveSalva;
+            }
+        });
+
+        // 3. Funções de Banco de Erros
+        const getErroBank = () => JSON.parse(localStorage.getItem('tjscErroBank')) || [];
+        const saveErroBank = (bank) => localStorage.setItem('tjscErroBank', JSON.stringify(bank));
+
+        let currentQuestions = [];
+
+        // 4. Função Principal de Inicialização
+        async function iniciarSimulado() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const subject = document.getElementById('subject').value;
+            const totalQtd = parseInt(document.getElementById('qtd').value);
+            const errorMsg = document.getElementById('error-msg');
+            
+            errorMsg.style.display = 'none';
+
+            if (!apiKey) {
+                errorMsg.innerHTML = "Por favor, insira sua chave da API do Gemini.";
+                errorMsg.style.display = 'block';
+                return;
+            }
+            if (totalQtd < 5 || totalQtd > 20) {
+                errorMsg.innerHTML = "A quantidade deve ser entre 5 e 20.";
+                errorMsg.style.display = 'block';
+                return;
+            }
+
+            // Salva a chave no navegador
+            localStorage.setItem('tjscApiKey', apiKey);
+
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('config-panel').style.display = 'none';
+            document.getElementById('quiz-panel').style.display = 'none';
+            document.getElementById('questions-container').innerHTML = '';
+
+            let erroBank = getErroBank();
+            let oldQuestionsToInclude = [];
+            let erroBankSubject = erroBank.filter(q => q.materia === subject);
+            
+            // Puxa até 30% das questões de erros passados
+            let oldQtd = Math.min(Math.floor(totalQtd * 0.3), erroBankSubject.length);
+            let newQtd = totalQtd - oldQtd;
+
+            for(let i = 0; i < oldQtd; i++) {
+                let randomIndex = Math.floor(Math.random() * erroBankSubject.length);
+                oldQuestionsToInclude.push(erroBankSubject[randomIndex]);
+                erroBankSubject.splice(randomIndex, 1);
+            }
+
+            try {
+                const newQuestions = await fetchGeminiQuestions(apiKey, subject, newQtd);
+                currentQuestions = [...oldQuestionsToInclude, ...newQuestions];
+                
+                // Embaralha
+                currentQuestions.sort(() => Math.random() - 0.5);
+
+                renderQuestions(currentQuestions);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('quiz-panel').style.display = 'block';
+
+            } catch (error) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('config-panel').style.display = 'block';
+                errorMsg.innerHTML = "Erro de conexão com o Gemini: " + error.message + "<br>Verifique sua chave de API e tente novamente.";
+                errorMsg.style.display = 'block';
+            }
+        }
+
+        // 5. Função que chama o Gemini
+        async function fetchGeminiQuestions(apiKey, subject, qtd) {
+            if (qtd === 0) return []; // Se todas as questões vierem do banco de erros
+
+            const conteudoProgramatico = editalTJSC[subject];
+            const prompt = `
+            Você é um examinador sênior da banca FGV, especialista no concurso do Tribunal de Justiça (cargo: Técnico Judiciário Auxiliar).
+            Crie ${qtd} questões inéditas de múltipla escolha sobre a matéria: "${subject}".
+            
+            ATENÇÃO: O conteúdo programático rigoroso definido no edital para esta prova e que deve ser cobrado é exclusivamente: "${conteudoProgramatico}".
+            
+            As questões devem ser de ALTO NÍVEL, exigindo raciocínio, interpretação de texto (se for português) e aplicação prática ou casos hipotéticos (se for direito). O gabarito comentado deve citar a lei ou a regra aplicável.
+            
+            Retorne EXATAMENTE e APENAS um array JSON puro, sem formatação markdown (\`\`\`), no seguinte formato:
+            [
+              {
+                "id": "gerado_aleatoriamente",
+                "materia": "${subject}",
+                "enunciado": "Texto da questão...",
+                "opcoes": {
+                  "A": "Opção A",
+                  "B": "Opção B",
+                  "C": "Opção C",
+                  "D": "Opção D",
+                  "E": "Opção E"
+                },
+                "resposta_correta": "A",
+                "comentario": "Explicação detalhada do gabarito."
+              }
+            ]`;
+
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: { temperature: 0.7 }
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error("Chave de API inválida ou limite excedido.");
+            }
+
+            const data = await response.json();
+            let rawText = data.candidates[0].content.parts[0].text;
+            
+            rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+            
+            let questions = JSON.parse(rawText);
+            questions.forEach(q => q.id = 'q_' + Math.random().toString(36).substr(2, 9));
+            return questions;
+        }
+
+        // 6. Desenhar as questões no HTML
+        function renderQuestions(questions) {
+            const container = document.getElementById('questions-container');
+            questions.forEach((q, index) => {
+                let html = `
+                    <div class="question-block" id="block-${q.id}">
+                        <p><strong>Questão ${index + 1} (${q.materia})</strong>: ${q.enunciado}</p>
+                `;
+                for (let [key, value] of Object.entries(q.opcoes)) {
+                    html += `
+                        <label class="option">
+                            <input type="radio" name="${q.id}" value="${key}">
+                            <strong>${key})</strong> ${value}
+                        </label>
+                    `;
+                }
+                html += `
+                        <div class="feedback" id="feedback-${q.id}"></div>
+                    </div>
+                `;
+                container.innerHTML += html;
+            });
+        }
+
+        // 7. Corrigir e gerenciar erros
+        function corrigirSimulado() {
+            let erroBank = getErroBank();
+
+            currentQuestions.forEach(q => {
+                const selected = document.querySelector(`input[name="${q.id}"]:checked`);
+                const feedbackDiv = document.getElementById(`feedback-${q.id}`);
+                feedbackDiv.style.display = 'block';
+
+                if (!selected) {
+                    feedbackDiv.className = 'feedback incorrect';
+                    feedbackDiv.innerHTML = `<strong>Não respondida.</strong> A correta era <strong>${q.resposta_correta}</strong>. <br><br><em>Comentário:</em> ${q.comentario}`;
+                    addToErros(erroBank, q);
+                    return;
+                }
+
+                if (selected.value === q.resposta_correta) {
+                    feedbackDiv.className = 'feedback correct';
+                    feedbackDiv.innerHTML = `<strong>Correto!</strong> <br><br><em>Comentário:</em> ${q.comentario}`;
+                    removeFromErros(erroBank, q.id);
+                } else {
+                    feedbackDiv.className = 'feedback incorrect';
+                    feedbackDiv.innerHTML = `<strong>Incorreto.</strong> Você marcou ${selected.value}, mas a correta era <strong>${q.resposta_correta}</strong>. <br><br><em>Comentário:</em> ${q.comentario}`;
+                    addToErros(erroBank, q);
+                }
+            });
+
+            saveErroBank(erroBank);
+            document.getElementById('btn-corrigir').style.display = 'none';
+            document.getElementById('btn-novo').style.display = 'block';
+        }
+
+        function addToErros(bank, question) {
+            if (!bank.find(q => q.id === question.id)) {
+                bank.push(question);
+            }
+        }
+
+        function removeFromErros(bank, questionId) {
+            const index = bank.findIndex(q => q.id === questionId);
+            if (index > -1) {
+                bank.splice(index, 1);
+            }
+        }
+    </script>
 </body>
 </html>
