@@ -13,18 +13,24 @@
         
         button { background-color: #3498db; color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 15px; padding: 15px; font-size: 16px; border-radius: 5px; transition: 0.3s; width: 100%; }
         button:hover { background-color: #2980b9; }
+        
+        .btn-dashboard { background-color: #8e44ad; margin-top: 10px; }
+        .btn-dashboard:hover { background-color: #732d91; }
+        
         #btn-responder { background-color: #e67e22; }
         #btn-responder:hover { background-color: #d35400; }
         #btn-proxima { background-color: #2c3e50; display: none; }
         #btn-proxima:hover { background-color: #1a252f; }
         #btn-novo { background-color: #27ae60; display: none; }
         #btn-novo:hover { background-color: #2ecc71; }
+        #btn-voltar { background-color: #7f8c8d; }
+        #btn-voltar:hover { background-color: #636e72; }
 
         .question-block { margin-bottom: 25px; padding-bottom: 15px; }
         .enunciado { font-size: 1.1em; margin-bottom: 20px; white-space: pre-wrap; }
         .option { margin: 8px 0; padding: 12px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; display: block; transition: 0.2s; }
         .option:hover { background: #eef; }
-        .option input { width: auto; margin-right: 10px; transform: scale(1.2); }
+        .option input { width: auto; margin-right: 10px; transform: scale(1.2); cursor: pointer; }
         .feedback { margin-top: 20px; padding: 15px; border-radius: 5px; display: none; font-size: 0.95em; line-height: 1.5; white-space: pre-wrap; }
         .correct { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .incorrect { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
@@ -33,153 +39,7 @@
         
         .progress-bar { background-color: #ecf0f1; border-radius: 8px; height: 10px; margin-bottom: 20px; overflow: hidden; }
         .progress-fill { background-color: #3498db; height: 100%; width: 0%; transition: width 0.3s; }
-    </style>
-</head>
-<body>
 
-    <h1>Simulador TJSC Infinito ⚖️</h1>
-
-    <div id="error-msg"></div>
-
-    <div class="card" id="config-panel">
-        <h2>Configuração da Bateria</h2>
-        <label for="apiKey">Chave da API do Gemini:</label>
-        <input type="password" id="apiKey" placeholder="Cole sua chave de API aqui" />
-
-        <label for="subject">Matéria do Edital:</label>
-        <select id="subject">
-            <option value="Língua Portuguesa">Língua Portuguesa</option>
-            <option value="Legislação Institucional do PJSC">Legislação Institucional do PJSC</option>
-            <option value="Ética e Gestão no Serviço Público">Ética e Gestão no Serviço Público</option>
-            <option value="Noções de Informática e Proteção de Dados">Noções de Informática e Proteção de Dados</option>
-            <option value="Direitos Humanos e Acesso à Justiça">Direitos Humanos e Acesso à Justiça</option>
-            <option value="Noções de Direito Administrativo">Noções de Direito Administrativo</option>
-            <option value="Noções de Direito Constitucional">Noções de Direito Constitucional</option>
-            <option value="Noções de Direito Civil">Noções de Direito Civil</option>
-            <option value="Noções de Direito Processual Civil">Noções de Direito Processual Civil</option>
-            <option value="Noções de Direito Penal">Noções de Direito Penal</option>
-            <option value="Noções de Direito Processual Penal">Noções de Direito Processual Penal</option>
-        </select>
-
-        <label for="qtd">Quantidade de Questões (5 a 20):</label>
-        <input type="number" id="qtd" min="5" max="20" value="5" />
-
-        <button onclick="iniciarSimulado()">Gerar e Iniciar Simulado</button>
-    </div>
-
-    <div id="loading">Conectando ao Gemini e elaborando questões da FGV... Aguarde.</div>
-
-    <div class="card" id="quiz-panel" style="display: none;">
-        <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
-        <div id="question-container"></div>
-        
-        <button onclick="verificarResposta()" id="btn-responder">Verificar Resposta</button>
-        <button onclick="proximaQuestao()" id="btn-proxima">Próxima Questão ➔</button>
-        <button onclick="location.reload()" id="btn-novo">Fazer Novo Simulado</button>
-    </div>
-
-    <script>
-        const editalTJSC = {
-            "Língua Portuguesa": "Compreensão e interpretação de textos. Tipos e gêneros textuais. Ortografia e acentuação oficial. Mecanismos de coesão textual. Gramática prática (concordância, pontuação, crase). Reescritura e adaptação de textos.",
-            "Legislação Institucional do PJSC": "Organização e funcionamento do Poder Judiciário de Santa Catarina. Regimento Interno do TJSC. Normas da Corregedoria-Geral da Justiça. Regime jurídico e disciplinar dos servidores.",
-            "Ética e Gestão no Serviço Público": "Princípios básicos da Administração Pública (legalidade, moralidade, interesse público, integridade). Deveres e responsabilidades do servidor.",
-            "Noções de Informática e Proteção de Dados": "Fundamentos de informática. Segurança da informação. Proteção de dados pessoais. Lei nº 13.709/2018 (LGPD) e Resolução TJ nº 3/2021.",
-            "Direitos Humanos e Acesso à Justiça": "Princípios básicos dos direitos humanos. Proteção internacional e constitucional. Acesso à justiça e garantias processuais. Grupos vulneráveis.",
-            "Noções de Direito Administrativo": "Organização administrativa (direta, indireta, centralizada, descentralizada). Princípios expressos e implícitos. Órgãos e agentes públicos. Poderes e Atos administrativos. Lei nº 14.133/2021 (Licitações). Estrutura administrativa do TJSC.",
-            "Noções de Direito Constitucional": "CF/88: Princípios fundamentais, Direitos e garantias fundamentais. Organização político-administrativa. Administração pública. Poder Judiciário (competências e estrutura do TJSC). Funções essenciais à Justiça. Conselho Nacional de Justiça (CNJ).",
-            "Noções de Direito Civil": "Lei de Introdução às Normas do Direito Brasileiro. Pessoas naturais e jurídicas. Bens. Fatos e negócios jurídicos. Obrigações e Contratos. Responsabilidade civil.",
-            "Noções de Direito Processual Civil": "CPC/2015. Princípio do devido processo legal, contraditório e ampla defesa. Pressupostos processuais. Jurisdição e Ação. Carta rogatória e auxílio direto. Competência.",
-            "Noções de Direito Penal": "Código Penal. Princípios da legalidade e anterioridade. Lei penal no tempo e espaço. Teoria do crime (ilicitude, culpabilidade). Crimes contra a pessoa, patrimônio e administração pública. Crimes hediondos. Abuso de autoridade. ECA. Resolução TJ n. 35/2025 (Competência varas criminais).",
-            "Noções de Direito Processual Penal": "CPP. Inquérito policial e Ação penal. Sujeitos do processo. Citações e intimações. Sentença. Processo comum e Instrução criminal. Tribunal do Júri. Prisão e liberdade provisória. Habeas corpus."
-        };
-
-        document.addEventListener("DOMContentLoaded", () => {
-            const chaveSalva = localStorage.getItem('tjscApiKey');
-            if (chaveSalva) document.getElementById('apiKey').value = chaveSalva;
-        });
-
-        const getErroBank = () => JSON.parse(localStorage.getItem('tjscErroBank')) || [];
-        const saveErroBank = (bank) => localStorage.setItem('tjscErroBank', JSON.stringify(bank));
-
-        let currentQuestions = [];
-        let currentIndex = 0;
-        let acertos = 0;
-
-        async function iniciarSimulado() {
-            const apiKey = document.getElementById('apiKey').value.trim();
-            const subject = document.getElementById('subject').value;
-            const totalQtd = parseInt(document.getElementById('qtd').value);
-            const errorMsg = document.getElementById('error-msg');
-            
-            errorMsg.style.display = 'none';
-
-            if (!apiKey) { errorMsg.innerHTML = "Insira sua chave da API."; errorMsg.style.display = 'block'; return; }
-            if (totalQtd < 5 || totalQtd > 20) { errorMsg.innerHTML = "Quantidade deve ser entre 5 e 20."; errorMsg.style.display = 'block'; return; }
-
-            localStorage.setItem('tjscApiKey', apiKey);
-
-            document.getElementById('loading').style.display = 'block';
-            document.getElementById('config-panel').style.display = 'none';
-            
-            currentIndex = 0;
-            acertos = 0;
-
-            let erroBank = getErroBank();
-            let erroBankSubject = erroBank.filter(q => q.materia === subject);
-            let oldQtd = Math.min(Math.floor(totalQtd * 0.3), erroBankSubject.length);
-            let newQtd = totalQtd - oldQtd;
-            
-            let oldQuestionsToInclude = [];
-            for(let i = 0; i < oldQtd; i++) {
-                let randomIndex = Math.floor(Math.random() * erroBankSubject.length);
-                oldQuestionsToInclude.push(erroBankSubject[randomIndex]);
-                erroBankSubject.splice(randomIndex, 1);
-            }
-
-            try {
-                const newQuestions = await fetchGeminiQuestions(apiKey, subject, newQtd);
-                currentQuestions = [...oldQuestionsToInclude, ...newQuestions];
-                currentQuestions.sort(() => Math.random() - 0.5);
-
-                if (currentQuestions.length === 0) throw new Error("Nenhuma questão pôde ser gerada.");
-
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('quiz-panel').style.display = 'block';
-                renderCurrentQuestion();
-
-            } catch (error) {
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('config-panel').style.display = 'block';
-                errorMsg.innerHTML = "Erro ao processar as questões: " + error.message;
-                errorMsg.style.display = 'block';
-            }
-        }
-
-        async function fetchGeminiQuestions(apiKey, subject, qtd) {
-            if (qtd === 0) return [];
-
-            const conteudoProgramatico = editalTJSC[subject];
-            const prompt = `
-            Você é um examinador sênior da banca FGV, especialista no concurso do Tribunal de Justiça (Técnico Judiciário).
-            Crie ${qtd} questões inéditas de múltipla escolha sobre a matéria: "${subject}".
-            
-            CONTEÚDO DO EDITAL PERMITIDO: "${conteudoProgramatico}".
-            
-            Diretrizes estritas:
-            1. Alto nível, com casos hipotéticos ou interpretação densa.
-            2. Você DEVE explicar por que a alternativa correta está certa E analisar por que as outras estão erradas.
-            3. Responda APENAS com a estrutura do Array JSON abaixo.
-            
-            Formato Obrigatório:
-            [
-              {
-                "materia": "${subject}",
-                "enunciado": "Texto da questão...",
-                "opcoes": { "A": "...", "B": "...", "C": "...", "D": "...", "E": "..." },
-                "resposta_correta": "A",
-                "comentario": "A alternativa A está correta porque... As alternativas B, C, D e E estão erradas porque..."
-              }
-            ]`;
-
-            // MÁGICA DE ESTABILIDADE: responseMimeType força o Gemini a devolver um JSON puro
-            const response = await fetch(`
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.9em; }
+        th, td { padding: 12px; border: 1px solid #ddd; text-align: center; }
+        th { background-color: #f
