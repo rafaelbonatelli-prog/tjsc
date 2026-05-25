@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador TJSC - Técnico Judiciário (Estilo FGV)</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f4f7f6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; line-height: 1.6; }
+        .card { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h1, h2 { color: #2c3e50; }
+        label { font-weight: bold; display: block; margin-top: 10px; }
+        input, select, button { width: 100%; padding: 10px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc; box-sizing: border-box; }
+        button { background-color: #3498db; color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 15px; }
+        button:hover { background-color: #2980b9; }
+        .question-block { margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
+        .option { margin: 8px 0; padding: 10px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; }
+        .option:hover { background: #eef; }
+        .option input { width: auto; margin-right: 10px; }
+        .feedback { margin-top: 10px; padding: 15px; border-radius: 5px; display: none; }
+        .correct { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .incorrect { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        #loading { display: none; text-align: center; font-weight: bold; color: #e67e22; }
+    </style>
+</head>
+<body>
+
+    <h1>Simulador TJSC Infinito ⚖️</h1>
+
+    <div class="card" id="config-panel">
+        <h2>Configuração da Bateria</h2>
+        <label for="apiKey">Chave da API do Gemini:</label>
+        <input type="password" id="apiKey" placeholder="Cole a sua chave de API aqui" />
+
+        <label for="subject">Matéria do Edital:</label>
+        <select id="subject">
+            <option value="Língua Portuguesa">Língua Portuguesa</option>
+            <option value="Legislação Institucional do PJSC">Legislação Institucional do PJSC</option>
+            <option value="Ética e Gestão no Serviço Público">Ética e Gestão no Serviço Público</option>
+            <option value="Noções de Informática e Proteção de Dados">Noções de Informática e Proteção de Dados</option>
+            <option value="Direitos Humanos e Acesso à Justiça">Direitos Humanos e Acesso à Justiça</option>
+            <option value="Noções de Direito Administrativo">Noções de Direito Administrativo</option>
+            <option value="Noções de Direito Constitucional">Noções de Direito Constitucional</option>
+            <option value="Noções de Direito Civil">Noções de Direito Civil</option>
+            <option value="Noções de Direito Processual Civil">Noções de Direito Processual Civil</option>
+            <option value="Noções de Direito Penal">Noções de Direito Penal</option>
+            <option value="Noções de Direito Processual Penal">Noções de Direito Processual Penal</option>
+        </select>
+
+        <label for="qtd">Quantidade de Questões (5 a 20):</label>
+        <input type="number" id="qtd" min="5" max="20" value="5" />
+
+        <button onclick="iniciarSimulado()">Gerar e Iniciar Simulado</button>
+    </div>
+
+    <div id="loading">A ligar ao Gemini e a elaborar questões da FGV com base no edital... Aguarde.</div>
+
+    <div class="card" id="quiz-panel" style="display: none;">
+        <h2>As Suas Questões</h2>
+        <div id="questions-container"></div>
+        <button onclick="corrigirSimulado()" id="btn-corrigir">Corrigir Simulado</button>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
