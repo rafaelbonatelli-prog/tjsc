@@ -9,18 +9,31 @@
         .card { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
         h1, h2 { color: #2c3e50; }
         label { font-weight: bold; display: block; margin-top: 10px; }
-        input, select, button { width: 100%; padding: 10px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc; box-sizing: border-box; }
-        button { background-color: #3498db; color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 15px; padding: 15px; font-size: 16px; transition: 0.3s;}
+        input[type="password"], input[type="number"], select { width: 100%; padding: 10px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc; box-sizing: border-box; }
+        
+        /* Estilos dos Botões */
+        button { background-color: #3498db; color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 15px; padding: 15px; font-size: 16px; border-radius: 5px; transition: 0.3s; width: 100%; }
         button:hover { background-color: #2980b9; }
-        .question-block { margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
-        .option { margin: 8px 0; padding: 10px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; display: block;}
+        #btn-responder { background-color: #e67e22; }
+        #btn-responder:hover { background-color: #d35400; }
+        #btn-proxima { background-color: #2c3e50; display: none; }
+        #btn-proxima:hover { background-color: #1a252f; }
+        #btn-novo { background-color: #27ae60; display: none; }
+        #btn-novo:hover { background-color: #2ecc71; }
+
+        .question-block { margin-bottom: 25px; padding-bottom: 15px; }
+        .enunciado { font-size: 1.1em; margin-bottom: 20px; }
+        .option { margin: 8px 0; padding: 12px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; display: block; transition: 0.2s; }
         .option:hover { background: #eef; }
-        .option input { width: auto; margin-right: 10px; }
-        .feedback { margin-top: 10px; padding: 15px; border-radius: 5px; display: none; }
+        .option input { width: auto; margin-right: 10px; transform: scale(1.2); }
+        .feedback { margin-top: 20px; padding: 15px; border-radius: 5px; display: none; font-size: 0.95em; line-height: 1.5; }
         .correct { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .incorrect { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
         #loading { display: none; text-align: center; font-weight: bold; color: #e67e22; padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);}
         #error-msg { display: none; background-color: #f8d7da; color: #721c24; padding: 15px; border-radius: 5px; margin-bottom: 15px; font-weight: bold; }
+        
+        .progress-bar { background-color: #ecf0f1; border-radius: 8px; height: 10px; margin-bottom: 20px; overflow: hidden; }
+        .progress-fill { background-color: #3498db; height: 100%; width: 0%; transition: width 0.3s; }
     </style>
 </head>
 <body>
@@ -33,7 +46,6 @@
         <h2>Configuração da Bateria</h2>
         <label for="apiKey">Chave da API do Gemini:</label>
         <input type="password" id="apiKey" placeholder="Cole sua chave de API aqui" />
-        <small style="color: #666;">Sua chave será salva no seu navegador para as próximas sessões.</small>
 
         <label for="subject">Matéria do Edital:</label>
         <select id="subject">
@@ -56,17 +68,18 @@
         <button onclick="iniciarSimulado()">Gerar e Iniciar Simulado</button>
     </div>
 
-    <div id="loading">Conectando ao Gemini e elaborando questões da FGV com base no edital... Aguarde alguns segundos.</div>
+    <div id="loading">Conectando ao Gemini e elaborando questões da FGV... Aguarde.</div>
 
     <div class="card" id="quiz-panel" style="display: none;">
-        <h2>Suas Questões</h2>
-        <div id="questions-container"></div>
-        <button onclick="corrigirSimulado()" id="btn-corrigir">Corrigir Simulado</button>
-        <button onclick="location.reload()" id="btn-novo" style="display: none; background-color: #27ae60;">Fazer Novo Simulado</button>
+        <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+        <div id="question-container"></div>
+        
+        <button onclick="verificarResposta()" id="btn-responder">Verificar Resposta</button>
+        <button onclick="proximaQuestao()" id="btn-proxima">Próxima Questão ➔</button>
+        <button onclick="location.reload()" id="btn-novo">Fazer Novo Simulado</button>
     </div>
 
     <script>
-        // 1. Dicionário do Edital (Rigoroso para Técnico Judiciário Auxiliar)
         const editalTJSC = {
             "Língua Portuguesa": "Compreensão e interpretação de textos. Tipos e gêneros textuais. Ortografia e acentuação oficial. Mecanismos de coesão textual. Gramática prática (concordância, pontuação, crase). Reescritura e adaptação de textos.",
             "Legislação Institucional do PJSC": "Organização e funcionamento do Poder Judiciário de Santa Catarina. Regimento Interno do TJSC. Normas da Corregedoria-Geral da Justiça. Regime jurídico e disciplinar dos servidores.",
@@ -81,21 +94,18 @@
             "Noções de Direito Processual Penal": "CPP. Inquérito policial e Ação penal. Sujeitos do processo. Citações e intimações. Sentença. Processo comum e Instrução criminal. Tribunal do Júri. Prisão e liberdade provisória. Habeas corpus."
         };
 
-        // 2. Preencher a chave automaticamente ao carregar a página
         document.addEventListener("DOMContentLoaded", () => {
             const chaveSalva = localStorage.getItem('tjscApiKey');
-            if (chaveSalva) {
-                document.getElementById('apiKey').value = chaveSalva;
-            }
+            if (chaveSalva) document.getElementById('apiKey').value = chaveSalva;
         });
 
-        // 3. Funções de Banco de Erros
         const getErroBank = () => JSON.parse(localStorage.getItem('tjscErroBank')) || [];
         const saveErroBank = (bank) => localStorage.setItem('tjscErroBank', JSON.stringify(bank));
 
         let currentQuestions = [];
+        let currentIndex = 0;
+        let acertos = 0;
 
-        // 4. Função Principal de Inicialização
         async function iniciarSimulado() {
             const apiKey = document.getElementById('apiKey').value.trim();
             const subject = document.getElementById('subject').value;
@@ -104,33 +114,23 @@
             
             errorMsg.style.display = 'none';
 
-            if (!apiKey) {
-                errorMsg.innerHTML = "Por favor, insira sua chave da API do Gemini.";
-                errorMsg.style.display = 'block';
-                return;
-            }
-            if (totalQtd < 5 || totalQtd > 20) {
-                errorMsg.innerHTML = "A quantidade deve ser entre 5 e 20.";
-                errorMsg.style.display = 'block';
-                return;
-            }
+            if (!apiKey) { errorMsg.innerHTML = "Insira sua chave da API."; errorMsg.style.display = 'block'; return; }
+            if (totalQtd < 5 || totalQtd > 20) { errorMsg.innerHTML = "Quantidade deve ser entre 5 e 20."; errorMsg.style.display = 'block'; return; }
 
-            // Salva a chave no navegador
             localStorage.setItem('tjscApiKey', apiKey);
 
             document.getElementById('loading').style.display = 'block';
             document.getElementById('config-panel').style.display = 'none';
-            document.getElementById('quiz-panel').style.display = 'none';
-            document.getElementById('questions-container').innerHTML = '';
+            
+            currentIndex = 0;
+            acertos = 0;
 
             let erroBank = getErroBank();
-            let oldQuestionsToInclude = [];
             let erroBankSubject = erroBank.filter(q => q.materia === subject);
-            
-            // Puxa até 30% das questões de erros passados
             let oldQtd = Math.min(Math.floor(totalQtd * 0.3), erroBankSubject.length);
             let newQtd = totalQtd - oldQtd;
-
+            
+            let oldQuestionsToInclude = [];
             for(let i = 0; i < oldQtd; i++) {
                 let randomIndex = Math.floor(Math.random() * erroBankSubject.length);
                 oldQuestionsToInclude.push(erroBankSubject[randomIndex]);
@@ -140,50 +140,44 @@
             try {
                 const newQuestions = await fetchGeminiQuestions(apiKey, subject, newQtd);
                 currentQuestions = [...oldQuestionsToInclude, ...newQuestions];
-                
-                // Embaralha
                 currentQuestions.sort(() => Math.random() - 0.5);
 
-                renderQuestions(currentQuestions);
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('quiz-panel').style.display = 'block';
+                renderCurrentQuestion();
 
             } catch (error) {
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('config-panel').style.display = 'block';
-                errorMsg.innerHTML = "Erro de conexão com o Gemini: " + error.message + "<br>Verifique sua chave de API e tente novamente.";
+                errorMsg.innerHTML = "Erro de conexão: " + error.message;
                 errorMsg.style.display = 'block';
             }
         }
 
-        // 5. Função que chama o Gemini
         async function fetchGeminiQuestions(apiKey, subject, qtd) {
-            if (qtd === 0) return []; // Se todas as questões vierem do banco de erros
+            if (qtd === 0) return [];
 
             const conteudoProgramatico = editalTJSC[subject];
             const prompt = `
-            Você é um examinador sênior da banca FGV, especialista no concurso do Tribunal de Justiça (cargo: Técnico Judiciário Auxiliar).
-            Crie ${qtd} questões inéditas de múltipla escolha sobre a matéria: "${subject}".
+            Você é um examinador sênior da banca FGV, especialista no concurso do Tribunal de Justiça (Técnico Judiciário).
+            Crie ${qtd} questões inéditas de múltipla escolha sobre: "${subject}".
             
-            ATENÇÃO: O conteúdo programático rigoroso definido no edital para esta prova e que deve ser cobrado é exclusivamente: "${conteudoProgramatico}".
+            CONTEÚDO DO EDITAL PERMITIDO: "${conteudoProgramatico}".
             
-            As questões devem ser de ALTO NÍVEL, exigindo raciocínio, interpretação de texto (se for português) e aplicação prática ou casos hipotéticos (se for direito). O gabarito comentado deve citar a lei ou a regra aplicável.
+            Diretrizes:
+            - Alto nível, com casos hipotéticos ou interpretação densa.
+            - Retorne APENAS um array JSON puro (sem markdown \`\`\`).
+            - No campo "comentario", você DEVE explicar por que a alternativa correta está certa E analisar por que as outras alternativas estão erradas.
             
-            Retorne EXATAMENTE e APENAS um array JSON puro, sem formatação markdown (\`\`\`), no seguinte formato:
+            Formato:
             [
               {
                 "id": "gerado_aleatoriamente",
                 "materia": "${subject}",
                 "enunciado": "Texto da questão...",
-                "opcoes": {
-                  "A": "Opção A",
-                  "B": "Opção B",
-                  "C": "Opção C",
-                  "D": "Opção D",
-                  "E": "Opção E"
-                },
+                "opcoes": { "A": "...", "B": "...", "C": "...", "D": "...", "E": "..." },
                 "resposta_correta": "A",
-                "comentario": "Explicação detalhada do gabarito."
+                "comentario": "A alternativa A está correta porque... As alternativas B, C, D e E estão erradas porque..."
               }
             ]`;
 
@@ -196,87 +190,109 @@
                 })
             });
 
-            if (!response.ok) {
-                throw new Error("Chave de API inválida ou limite excedido.");
-            }
+            if (!response.ok) throw new Error("Chave de API inválida ou limite excedido.");
 
             const data = await response.json();
-            let rawText = data.candidates[0].content.parts[0].text;
-            
-            rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+            let rawText = data.candidates[0].content.parts[0].text.replace(/```json/g, '').replace(/```/g, '').trim();
             
             let questions = JSON.parse(rawText);
             questions.forEach(q => q.id = 'q_' + Math.random().toString(36).substr(2, 9));
             return questions;
         }
 
-        // 6. Desenhar as questões no HTML
-        function renderQuestions(questions) {
-            const container = document.getElementById('questions-container');
-            questions.forEach((q, index) => {
-                let html = `
-                    <div class="question-block" id="block-${q.id}">
-                        <p><strong>Questão ${index + 1} (${q.materia})</strong>: ${q.enunciado}</p>
-                `;
-                for (let [key, value] of Object.entries(q.opcoes)) {
-                    html += `
-                        <label class="option">
-                            <input type="radio" name="${q.id}" value="${key}">
-                            <strong>${key})</strong> ${value}
-                        </label>
-                    `;
-                }
-                html += `
-                        <div class="feedback" id="feedback-${q.id}"></div>
-                    </div>
-                `;
-                container.innerHTML += html;
-            });
+        function renderCurrentQuestion() {
+            const container = document.getElementById('question-container');
+            const progress = document.getElementById('progress');
+            
+            progress.style.width = \`\${(currentIndex / currentQuestions.length) * 100}%\`;
+
+            if (currentIndex >= currentQuestions.length) {
+                container.innerHTML = \`
+                    <h2>Simulado Concluído! 🎯</h2>
+                    <p>Você acertou <strong>\${acertos}</strong> de <strong>\${currentQuestions.length}</strong> questões.</p>
+                    <p>As questões que você errou foram guardadas no seu banco de erros e voltarão no futuro.</p>
+                \`;
+                document.getElementById('btn-responder').style.display = 'none';
+                document.getElementById('btn-proxima').style.display = 'none';
+                document.getElementById('btn-novo').style.display = 'block';
+                progress.style.width = '100%';
+                return;
+            }
+
+            const q = currentQuestions[currentIndex];
+            let html = \`
+                <div class="question-block" id="block-\${q.id}">
+                    <p style="color: #7f8c8d; font-weight: bold;">Questão \${currentIndex + 1} de \${currentQuestions.length} - \${q.materia}</p>
+                    <div class="enunciado">\${q.enunciado}</div>
+            \`;
+            
+            for (let [key, value] of Object.entries(q.opcoes)) {
+                html += \`
+                    <label class="option" id="label-\${q.id}-\${key}">
+                        <input type="radio" name="\${q.id}" value="\${key}">
+                        <strong>\${key})</strong> \${value}
+                    </label>
+                \`;
+            }
+            
+            html += \`<div class="feedback" id="feedback-\${q.id}"></div></div>\`;
+            
+            container.innerHTML = html;
+            document.getElementById('btn-responder').style.display = 'block';
+            document.getElementById('btn-proxima').style.display = 'none';
         }
 
-        // 7. Corrigir e gerenciar erros
-        function corrigirSimulado() {
+        function verificarResposta() {
+            const q = currentQuestions[currentIndex];
+            const selected = document.querySelector(\`input[name="\${q.id}"]:checked\`);
+            const feedbackDiv = document.getElementById(\`feedback-\${q.id}\`);
             let erroBank = getErroBank();
 
-            currentQuestions.forEach(q => {
-                const selected = document.querySelector(`input[name="${q.id}"]:checked`);
-                const feedbackDiv = document.getElementById(`feedback-${q.id}`);
-                feedbackDiv.style.display = 'block';
+            if (!selected) {
+                alert("Por favor, selecione uma alternativa antes de verificar a resposta.");
+                return;
+            }
 
-                if (!selected) {
-                    feedbackDiv.className = 'feedback incorrect';
-                    feedbackDiv.innerHTML = `<strong>Não respondida.</strong> A correta era <strong>${q.resposta_correta}</strong>. <br><br><em>Comentário:</em> ${q.comentario}`;
-                    addToErros(erroBank, q);
-                    return;
-                }
+            // Desabilita os inputs para não mudar a resposta após corrigir
+            document.querySelectorAll(\`input[name="\${q.id}"]\`).forEach(el => el.disabled = true);
+            feedbackDiv.style.display = 'block';
 
-                if (selected.value === q.resposta_correta) {
-                    feedbackDiv.className = 'feedback correct';
-                    feedbackDiv.innerHTML = `<strong>Correto!</strong> <br><br><em>Comentário:</em> ${q.comentario}`;
-                    removeFromErros(erroBank, q.id);
-                } else {
-                    feedbackDiv.className = 'feedback incorrect';
-                    feedbackDiv.innerHTML = `<strong>Incorreto.</strong> Você marcou ${selected.value}, mas a correta era <strong>${q.resposta_correta}</strong>. <br><br><em>Comentário:</em> ${q.comentario}`;
-                    addToErros(erroBank, q);
-                }
-            });
+            // Colore a alternativa correta de verde
+            document.getElementById(\`label-\${q.id}-\${q.resposta_correta}\`).style.backgroundColor = '#d4edda';
+            document.getElementById(\`label-\${q.id}-\${q.resposta_correta}\`).style.borderColor = '#c3e6cb';
+
+            if (selected.value === q.resposta_correta) {
+                acertos++;
+                feedbackDiv.className = 'feedback correct';
+                feedbackDiv.innerHTML = \`<strong>✅ Resposta Correta!</strong><br><br><strong>Comentário do Examinador:</strong><br>\${q.comentario}\`;
+                removeFromErros(erroBank, q.id);
+            } else {
+                // Colore a errada selecionada de vermelho
+                document.getElementById(\`label-\${q.id}-\${selected.value}\`).style.backgroundColor = '#f8d7da';
+                document.getElementById(\`label-\${q.id}-\${selected.value}\`).style.borderColor = '#f5c6cb';
+                
+                feedbackDiv.className = 'feedback incorrect';
+                feedbackDiv.innerHTML = \`<strong>❌ Resposta Incorreta.</strong> Você marcou \${selected.value}, mas a correta era <strong>\${q.resposta_correta}</strong>.<br><br><strong>Análise das Alternativas:</strong><br>\${q.comentario}\`;
+                addToErros(erroBank, q);
+            }
 
             saveErroBank(erroBank);
-            document.getElementById('btn-corrigir').style.display = 'none';
-            document.getElementById('btn-novo').style.display = 'block';
+            document.getElementById('btn-responder').style.display = 'none';
+            document.getElementById('btn-proxima').style.display = 'block';
+        }
+
+        function proximaQuestao() {
+            currentIndex++;
+            renderCurrentQuestion();
         }
 
         function addToErros(bank, question) {
-            if (!bank.find(q => q.id === question.id)) {
-                bank.push(question);
-            }
+            if (!bank.find(q => q.enunciado === question.enunciado)) bank.push(question);
         }
 
         function removeFromErros(bank, questionId) {
             const index = bank.findIndex(q => q.id === questionId);
-            if (index > -1) {
-                bank.splice(index, 1);
-            }
+            if (index > -1) bank.splice(index, 1);
         }
     </script>
 </body>
