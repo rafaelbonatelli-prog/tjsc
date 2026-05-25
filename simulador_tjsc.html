@@ -4,9 +4,338 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Painel de Estudos - Técnico Judiciário TJSC</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #34495e;
+            --accent: #3498db;
+            --success: #27ae60;
+            --danger: #e74c3c;
+            --light: #ecf0f1;
+            --dark: #2c3e50;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f6fa;
+            color: var(--dark);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: var(--primary);
+            border-bottom: 2px solid var(--accent);
+            padding-bottom: 10px;
+        }
+        .setup-panel, .quiz-panel, .result-panel {
+            display: none;
+        }
+        .active {
+            display: block;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        select, input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #bdc3c7;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 10px;
+            width: 100%;
+            transition: background 0.3s;
+        }
+        button:hover { background-color: #2980b9; }
+        .btn-review { background-color: #e67e22; }
+        .btn-review:hover { background-color: #d35400; }
+        
+        .question-text {
+            font-size: 18px;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+        .option {
+            background-color: var(--light);
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .option:hover { border-color: var(--accent); }
+        .option.selected {
+            background-color: #d6eaf8;
+            border-color: var(--accent);
+        }
+        .option.correct {
+            background-color: #d5f5e3;
+            border-color: var(--success);
+        }
+        .option.incorrect {
+            background-color: #fadbd8;
+            border-color: var(--danger);
+        }
+        .rationale {
+            display: none;
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #fef9e7;
+            border-left: 4px solid #f1c40f;
+            border-radius: 4px;
+        }
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+    </style>
 </head>
 <body>
-<h1>Arquivo HTML gerado</h1>
-<p>O código completo é muito extenso para reproduzir integralmente nesta etapa automática, mas este arquivo pode ser usado como base para colar o conteúdo integral fornecido na conversa.</p>
+
+<div class="container">
+    <h1>Simulador TJSC (Estilo FGV)</h1>
+    
+    <div id="setupPanel" class="setup-panel active">
+        <div class="form-group">
+            <label>Matéria:</label>
+            <select id="subjectSelect">
+                <option value="all">Todas as Matérias</option>
+                <option value="Direito Administrativo">Direito Administrativo</option>
+                <option value="Direito Processual Penal">Direito Processual Penal</option>
+                <option value="Legislação Institucional do TJSC">Legislação Institucional do TJSC</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Número de Questões:</label>
+            <input type="number" id="numQuestions" value="5" min="1" max="50">
+        </div>
+        <button onclick="startQuiz(false)">Iniciar Bateria Nova</button>
+        <button class="btn-review" onclick="startQuiz(true)">Revisar Meus Erros (Repetição Espaçada)</button>
+        
+        <p style="text-align: center; margin-top: 20px; font-size: 14px; color: #7f8c8d;">
+            Progresso salvo localmente no navegador.
+        </p>
+    </div>
+
+    <div id="quizPanel" class="quiz-panel">
+        <div class="stats">
+            <span id="progressText">Questão 1 de 5</span>
+            <span id="scoreText">Acertos: 0</span>
+        </div>
+        <div id="questionContainer"></div>
+        <button id="submitBtn" onclick="submitAnswer()" style="display:none;">Confirmar Resposta</button>
+        <button id="nextBtn" onclick="nextQuestion()" style="display:none;">Próxima Questão</button>
+    </div>
+
+    <div id="resultPanel" class="result-panel">
+        <h2>Bateria Concluída!</h2>
+        <p id="finalScore" style="font-size: 20px; font-weight: bold;"></p>
+        <button onclick="returnToSetup()">Voltar ao Início</button>
+    </div>
+</div>
+
+<script>
+    // Banco de Questões em JSON
+    const bancoDeQuestoes = [
+        {
+            id: 1,
+            subject: "Direito Administrativo",
+            question: "O Prefeito Municipal decide revogar uma licença para construir que havia sido concedida licitamente há dois meses a um particular, que já havia iniciado a obra. A revogação praticada pelo Prefeito é:",
+            options: [
+                "Válida, pois a Administração pode revogar atos por conveniência ou oportunidade.",
+                "Inválida, uma vez que a licença é um ato vinculado e definitivo, que gera direito adquirido.",
+                "Válida, mas o Município será obrigado a indemnizar o particular.",
+                "Inválida, pois atos do executivo só podem ser revogados pelo Judiciário."
+            ],
+            correctIndex: 1,
+            rationale: "A licença é um ato administrativo vinculado. Cumpridos os requisitos, o particular tem o direito adquirido. Diferente da autorização (que é precária), a licença não pode ser revogada por conveniência e oportunidade."
+        },
+        {
+            id: 2,
+            subject: "Direito Processual Penal",
+            question: "O Ministério Público oferece a denúncia contra Ricardo pela prática de estelionato. O juiz entende que os factos narrados não constituem crime de forma evidente (atipicidade) e decide rejeitar liminarmente a denúncia. O recurso adequado do MP é:",
+            options: [
+                "Recurso de Apelação.",
+                "Correição Parcial.",
+                "Embargos de Declaração.",
+                "Recurso em Sentido Estrito (RESE)."
+            ],
+            correctIndex: 3,
+            rationale: "Nos termos do art. 581, inciso I, do Código de Processo Penal, cabe Recurso em Sentido Estrito da decisão, despacho ou sentença que não receber a denúncia ou a queixa."
+        },
+        {
+            id: 3,
+            subject: "Legislação Institucional do TJSC",
+            question: "João foi punido com suspensão de 30 dias. Dois anos depois, localiza provas de sua inocência e pede Revisão do Processo Administrativo. A comissão revisora conclui que a infração foi ainda mais grave e sugere a pena de demissão. A autoridade julgadora:",
+            options: [
+                "Poderá aplicar a demissão, pois a revisão reabre o processo na sua totalidade.",
+                "Deverá remeter os autos ao Ministério Público.",
+                "Não poderá aplicar a pena de demissão, pois é vedada a reformatio in pejus na revisão.",
+                "Poderá demitir se a nova prova for de má-fé."
+            ],
+            correctIndex: 2,
+            rationale: "O art. 182 do Estatuto dos Servidores de SC (Lei 6.745/85) estabelece a vedação da reformatio in pejus. Da revisão do processo administrativo disciplinar não poderá resultar agravamento da penalidade."
+        }
+        // Você pode colar centenas de questões aqui seguindo este mesmo formato
+    ];
+
+    // Variáveis de Estado
+    let currentQuestions = [];
+    let currentIndex = 0;
+    let score = 0;
+    let selectedOptionIndex = null;
+    let userStats = JSON.parse(localStorage.getItem('tjsc_stats')) || {};
+
+    // Elementos da DOM
+    const setupPanel = document.getElementById('setupPanel');
+    const quizPanel = document.getElementById('quizPanel');
+    const resultPanel = document.getElementById('resultPanel');
+    const questionContainer = document.getElementById('questionContainer');
+    const submitBtn = document.getElementById('submitBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const progressText = document.getElementById('progressText');
+    const scoreText = document.getElementById('scoreText');
+
+    function startQuiz(reviewMode) {
+        const subject = document.getElementById('subjectSelect').value;
+        const limit = parseInt(document.getElementById('numQuestions').value);
+        
+        let pool = bancoDeQuestoes;
+        if (subject !== 'all') {
+            pool = pool.filter(q => q.subject === subject);
+        }
+
+        if (reviewMode) {
+            // Filtra apenas questões que o utilizador errou no passado
+            pool = pool.filter(q => userStats[q.id] && userStats[q.id].incorrect > 0);
+            // Ordena pelas que mais errou
+            pool.sort((a, b) => userStats[b.id].incorrect - userStats[a.id].incorrect);
+            if (pool.length === 0) {
+                alert("Parabéns! Você não tem questões erradas para revisar nesta matéria.");
+                return;
+            }
+        } else {
+            // Embaralha as questões para um simulado novo
+            pool = pool.sort(() => 0.5 - Math.random());
+        }
+
+        currentQuestions = pool.slice(0, limit);
+        currentIndex = 0;
+        score = 0;
+        
+        setupPanel.classList.remove('active');
+        quizPanel.classList.add('active');
+        loadQuestion();
+    }
+
+    function loadQuestion() {
+        selectedOptionIndex = null;
+        submitBtn.style.display = 'none';
+        nextBtn.style.display = 'none';
+        
+        const q = currentQuestions[currentIndex];
+        progressText.innerText = `Questão ${currentIndex + 1} de ${currentQuestions.length} | ${q.subject}`;
+        scoreText.innerText = `Acertos: ${score}`;
+
+        let html = `<div class="question-text">${q.question}</div>`;
+        q.options.forEach((opt, index) => {
+            html += `<div class="option" onclick="selectOption(${index})" id="opt-${index}">${String.fromCharCode(65 + index)}) ${opt}</div>`;
+        });
+        html += `<div id="rationale" class="rationale"><strong>Justificativa:</strong> ${q.rationale}</div>`;
+        
+        questionContainer.innerHTML = html;
+    }
+
+    // Usando função tradicional (evitando restrições específicas dependendo de onde o script roda)
+    window.selectOption = function(index) {
+        if (nextBtn.style.display === 'block') return; // Já respondeu
+        
+        document.querySelectorAll('.option').forEach(el => el.classList.remove('selected'));
+        document.getElementById(`opt-${index}`).classList.add('selected');
+        selectedOptionIndex = index;
+        submitBtn.style.display = 'block';
+    }
+
+    window.submitAnswer = function() {
+        if (selectedOptionIndex === null) return;
+        
+        const q = currentQuestions[currentIndex];
+        const correctIndex = q.correctIndex;
+        
+        // Inicializa stats para a questão se não existir
+        if (!userStats[q.id]) {
+            userStats[q.id] = { correct: 0, incorrect: 0 };
+        }
+
+        if (selectedOptionIndex === correctIndex) {
+            document.getElementById(`opt-${selectedOptionIndex}`).classList.add('correct');
+            score++;
+            userStats[q.id].correct++;
+        } else {
+            document.getElementById(`opt-${selectedOptionIndex}`).classList.add('incorrect');
+            document.getElementById(`opt-${correctIndex}`).classList.add('correct');
+            userStats[q.id].incorrect++;
+        }
+
+        // Salva no localStorage
+        localStorage.setItem('tjsc_stats', JSON.stringify(userStats));
+
+        document.getElementById('rationale').style.display = 'block';
+        submitBtn.style.display = 'none';
+        nextBtn.style.display = 'block';
+        scoreText.innerText = `Acertos: ${score}`;
+    }
+
+    window.nextQuestion = function() {
+        currentIndex++;
+        if (currentIndex < currentQuestions.length) {
+            loadQuestion();
+        } else {
+            showResults();
+        }
+    }
+
+    function showResults() {
+        quizPanel.classList.remove('active');
+        resultPanel.classList.add('active');
+        const percentage = Math.round((score / currentQuestions.length) * 100);
+        document.getElementById('finalScore').innerText = `Você acertou ${score} de ${currentQuestions.length} (${percentage}%)`;
+    }
+
+    window.returnToSetup = function() {
+        resultPanel.classList.remove('active');
+        setupPanel.classList.add('active');
+    }
+</script>
+
 </body>
 </html>
