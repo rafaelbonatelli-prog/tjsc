@@ -21,11 +21,11 @@
         #btn-novo:hover { background-color: #2ecc71; }
 
         .question-block { margin-bottom: 25px; padding-bottom: 15px; }
-        .enunciado { font-size: 1.1em; margin-bottom: 20px; }
+        .enunciado { font-size: 1.1em; margin-bottom: 20px; white-space: pre-wrap; }
         .option { margin: 8px 0; padding: 12px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; display: block; transition: 0.2s; }
         .option:hover { background: #eef; }
         .option input { width: auto; margin-right: 10px; transform: scale(1.2); }
-        .feedback { margin-top: 20px; padding: 15px; border-radius: 5px; display: none; font-size: 0.95em; line-height: 1.5; }
+        .feedback { margin-top: 20px; padding: 15px; border-radius: 5px; display: none; font-size: 0.95em; line-height: 1.5; white-space: pre-wrap; }
         .correct { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .incorrect { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
         #loading { display: none; text-align: center; font-weight: bold; color: #e67e22; padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);}
@@ -150,7 +150,7 @@
             } catch (error) {
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('config-panel').style.display = 'block';
-                errorMsg.innerHTML = "Erro de conexão: " + error.message;
+                errorMsg.innerHTML = "Erro ao processar as questões: " + error.message;
                 errorMsg.style.display = 'block';
             }
         }
@@ -161,19 +161,18 @@
             const conteudoProgramatico = editalTJSC[subject];
             const prompt = `
             Você é um examinador sênior da banca FGV, especialista no concurso do Tribunal de Justiça (Técnico Judiciário).
-            Crie ${qtd} questões inéditas de múltipla escolha sobre: "${subject}".
+            Crie ${qtd} questões inéditas de múltipla escolha sobre a matéria: "${subject}".
             
             CONTEÚDO DO EDITAL PERMITIDO: "${conteudoProgramatico}".
             
-            Diretrizes:
-            - Alto nível, com casos hipotéticos ou interpretação densa.
-            - Retorne APENAS um array JSON puro.
-            - No campo "comentario", você DEVE explicar por que a alternativa correta está certa E analisar por que as outras alternativas estão erradas.
+            Diretrizes estritas:
+            1. Alto nível, com casos hipotéticos ou interpretação densa.
+            2. Você DEVE explicar por que a alternativa correta está certa E analisar por que as outras estão erradas.
+            3. Responda APENAS com a estrutura do Array JSON abaixo.
             
-            Formato:
+            Formato Obrigatório:
             [
               {
-                "id": "gerado_aleatoriamente",
                 "materia": "${subject}",
                 "enunciado": "Texto da questão...",
                 "opcoes": { "A": "...", "B": "...", "C": "...", "D": "...", "E": "..." },
@@ -182,120 +181,5 @@
               }
             ]`;
 
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: { temperature: 0.7 }
-                })
-            });
-
-            if (!response.ok) throw new Error("Chave de API inválida ou limite excedido.");
-
-            const data = await response.json();
-            let rawText = data.candidates[0].content.parts[0].text;
-            
-            // Filtro robusto para extrair apenas o array JSON, caso a API envie texto extra
-            const jsonMatch = rawText.match(/\[[\s\S]*\]/);
-            if (!jsonMatch) throw new Error("O formato da resposta não era um JSON válido.");
-            
-            let questions = JSON.parse(jsonMatch[0]);
-            questions.forEach(q => q.id = 'q_' + Math.random().toString(36).substr(2, 9));
-            return questions;
-        }
-
-        function renderCurrentQuestion() {
-            const container = document.getElementById('question-container');
-            const progress = document.getElementById('progress');
-            
-            progress.style.width = `${(currentIndex / currentQuestions.length) * 100}%`;
-
-            if (currentIndex >= currentQuestions.length) {
-                container.innerHTML = `
-                    <h2>Simulado Concluído! 🎯</h2>
-                    <p>Você acertou <strong>${acertos}</strong> de <strong>${currentQuestions.length}</strong> questões.</p>
-                    <p>As questões que você errou foram guardadas no seu banco de erros e voltarão no futuro.</p>
-                `;
-                document.getElementById('btn-responder').style.display = 'none';
-                document.getElementById('btn-proxima').style.display = 'none';
-                document.getElementById('btn-novo').style.display = 'block';
-                progress.style.width = '100%';
-                return;
-            }
-
-            const q = currentQuestions[currentIndex];
-            let html = `
-                <div class="question-block" id="block-${q.id}">
-                    <p style="color: #7f8c8d; font-weight: bold;">Questão ${currentIndex + 1} de ${currentQuestions.length} - ${q.materia}</p>
-                    <div class="enunciado">${q.enunciado}</div>
-            `;
-            
-            for (let [key, value] of Object.entries(q.opcoes)) {
-                html += `
-                    <label class="option" id="label-${q.id}-${key}">
-                        <input type="radio" name="${q.id}" value="${key}">
-                        <strong>${key})</strong> ${value}
-                    </label>
-                `;
-            }
-            
-            html += `<div class="feedback" id="feedback-${q.id}"></div></div>`;
-            
-            container.innerHTML = html;
-            document.getElementById('btn-responder').style.display = 'block';
-            document.getElementById('btn-proxima').style.display = 'none';
-        }
-
-        function verificarResposta() {
-            const q = currentQuestions[currentIndex];
-            const selected = document.querySelector(`input[name="${q.id}"]:checked`);
-            const feedbackDiv = document.getElementById(`feedback-${q.id}`);
-            let erroBank = getErroBank();
-
-            if (!selected) {
-                alert("Por favor, selecione uma alternativa antes de verificar a resposta.");
-                return;
-            }
-
-            document.querySelectorAll(`input[name="${q.id}"]`).forEach(el => el.disabled = true);
-            feedbackDiv.style.display = 'block';
-
-            document.getElementById(`label-${q.id}-${q.resposta_correta}`).style.backgroundColor = '#d4edda';
-            document.getElementById(`label-${q.id}-${q.resposta_correta}`).style.borderColor = '#c3e6cb';
-
-            if (selected.value === q.resposta_correta) {
-                acertos++;
-                feedbackDiv.className = 'feedback correct';
-                feedbackDiv.innerHTML = `<strong>✅ Resposta Correta!</strong><br><br><strong>Comentário do Examinador:</strong><br>${q.comentario}`;
-                removeFromErros(erroBank, q.id);
-            } else {
-                document.getElementById(`label-${q.id}-${selected.value}`).style.backgroundColor = '#f8d7da';
-                document.getElementById(`label-${q.id}-${selected.value}`).style.borderColor = '#f5c6cb';
-                
-                feedbackDiv.className = 'feedback incorrect';
-                feedbackDiv.innerHTML = `<strong>❌ Resposta Incorreta.</strong> Você marcou ${selected.value}, mas a correta era <strong>${q.resposta_correta}</strong>.<br><br><strong>Análise das Alternativas:</strong><br>${q.comentario}`;
-                addToErros(erroBank, q);
-            }
-
-            saveErroBank(erroBank);
-            document.getElementById('btn-responder').style.display = 'none';
-            document.getElementById('btn-proxima').style.display = 'block';
-        }
-
-        function proximaQuestao() {
-            currentIndex++;
-            renderCurrentQuestion();
-        }
-
-        function addToErros(bank, question) {
-            if (!bank.find(q => q.enunciado === question.enunciado)) bank.push(question);
-        }
-
-        function removeFromErros(bank, questionId) {
-            const index = bank.findIndex(q => q.id === questionId);
-            if (index > -1) bank.splice(index, 1);
-        }
-    </script>
-</body>
-</html>
+            // MÁGICA DE ESTABILIDADE: responseMimeType força o Gemini a devolver um JSON puro
+            const response = await fetch(`
