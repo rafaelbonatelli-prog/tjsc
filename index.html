@@ -7,7 +7,7 @@
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f4f7f6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; line-height: 1.6; }
         .card { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        h1, h2 { color: #2c3e50; }
+        h1, h2, h3 { color: #2c3e50; }
         label { font-weight: bold; display: block; margin-top: 10px; }
         input[type="password"], input[type="number"], select { width: 100%; padding: 10px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc; box-sizing: border-box; }
         
@@ -16,15 +16,17 @@
         
         .btn-dashboard { background-color: #8e44ad; margin-top: 10px; }
         .btn-dashboard:hover { background-color: #732d91; }
+        .btn-half { width: 48%; display: inline-block; padding: 12px; font-size: 14px; }
+        .btn-export { background-color: #2c3e50; }
+        .btn-export:hover { background-color: #1a252f; }
+        .btn-import { background-color: #7f8c8d; float: right; }
+        .btn-import:hover { background-color: #636e72; }
         
         #btn-responder { background-color: #e67e22; }
         #btn-responder:hover { background-color: #d35400; }
         #btn-proxima { background-color: #2c3e50; display: none; }
-        #btn-proxima:hover { background-color: #1a252f; }
         #btn-novo { background-color: #27ae60; display: none; }
-        #btn-novo:hover { background-color: #2ecc71; }
         #btn-voltar { background-color: #7f8c8d; }
-        #btn-voltar:hover { background-color: #636e72; }
 
         .question-block { margin-bottom: 25px; padding-bottom: 15px; }
         .enunciado { font-size: 1.1em; margin-bottom: 20px; white-space: pre-wrap; }
@@ -39,7 +41,338 @@
         
         .progress-bar { background-color: #ecf0f1; border-radius: 8px; height: 10px; margin-bottom: 20px; overflow: hidden; }
         .progress-fill { background-color: #3498db; height: 100%; width: 0%; transition: width 0.3s; }
-
         table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.9em; }
         th, td { padding: 12px; border: 1px solid #ddd; text-align: center; }
-        th { background-color: #f
+        th { background-color: #f2f2f2; text-align: left; }
+        td:first-child { text-align: left; font-weight: bold; }
+        .tr-total { background-color: #d4edda; font-weight: bold; font-size: 1em; }
+        .backup-section { margin-top: 25px; padding-top: 15px; border-top: 2px dashed #eee; }
+    </style>
+</head>
+<body>
+
+    <h1>Simulador TJSC Infinito ⚖️</h1>
+
+    <div id="error-msg"></div>
+
+    <div class="card" id="config-panel">
+        <h2>Configuração da Bateria</h2>
+        <label for="apiKey">Chave da API do Gemini:</label>
+        <input type="password" id="apiKey" placeholder="Cole a sua chave de API aqui" />
+
+        <label for="subject">Matéria do Edital:</label>
+        <select id="subject">
+            <option value="Língua Portuguesa">Língua Portuguesa</option>
+            <option value="Legislação Institucional do PJSC">Legislação Institucional do PJSC</option>
+            <option value="Ética e Gestão no Serviço Público">Ética e Gestão no Serviço Público</option>
+            <option value="Noções de Informática e Proteção de Dados">Noções de Informática e Proteção de Dados</option>
+            <option value="Direitos Humanos e Acesso à Justiça">Direitos Humanos e Acesso à Justiça</option>
+            <option value="Noções de Direito Administrativo">Noções de Direito Administrativo</option>
+            <option value="Noções de Direito Constitucional">Noções de Direito Constitucional</option>
+            <option value="Noções de Direito Civil">Noções de Direito Civil</option>
+            <option value="Noções de Direito Processual Civil">Noções de Direito Processual Civil</option>
+            <option value="Noções de Direito Penal">Noções de Direito Penal</option>
+            <option value="Noções de Direito Processual Penal">Noções de Direito Processual Penal</option>
+        </select>
+
+        <label for="qtd">Quantidade de Questões (5 a 20):</label>
+        <input type="number" id="qtd" min="5" max="20" value="5" />
+
+        <button onclick="iniciarSimulado()">Gerar e Iniciar Simulado</button>
+        <button onclick="mostrarDashboard()" class="btn-dashboard">Meu Desempenho 📊</button>
+
+        <div class="backup-section">
+            <h3 style="margin-top:0; margin-bottom: 5px;">💾 Nuvem e Dispositivos</h3>
+            <p style="font-size: 0.85em; color: #666; margin-bottom: 15px;">Exporte seu progresso para salvar no Google Drive ou transfira para outro dispositivo.</p>
+            
+            <button onclick="exportarBackup()" class="btn-half btn-export">Exportar Backup</button>
+            <input type="file" id="importFile" style="display: none;" accept=".json" onchange="importarBackup(event)">
+            <button onclick="document.getElementById('importFile').click()" class="btn-half btn-import">Importar Backup</button>
+            <div style="clear: both;"></div>
+        </div>
+    </div>
+
+    <div class="card" id="dashboard-panel" style="display: none;">
+        <h2>Meu Desempenho Geral 📈</h2>
+        <div id="stats-container"></div>
+        <button onclick="fecharDashboard()" id="btn-voltar">Voltar</button>
+    </div>
+
+    <div id="loading">A conectar ao Gemini e a elaborar questões inéditas... Aguarde.</div>
+
+    <div class="card" id="quiz-panel" style="display: none;">
+        <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+        <div id="question-container"></div>
+        
+        <button onclick="verificarResposta()" id="btn-responder">Verificar Resposta</button>
+        <button onclick="proximaQuestao()" id="btn-proxima">Próxima Questão ➔</button>
+        <button onclick="location.reload()" id="btn-novo">Fazer Novo Simulado</button>
+    </div>
+
+    <script>
+        const editalTJSC = {
+            "Língua Portuguesa": "Compreensão e interpretação de textos. Tipos e gêneros textuais. Ortografia e acentuação oficial. Mecanismos de coesão textual. Gramática prática (concordância, pontuação, crase). Reescritura e adaptação de textos.",
+            "Legislação Institucional do PJSC": "Organização e funcionamento do Poder Judiciário de Santa Catarina. Regimento Interno do TJSC. Normas da Corregedoria-Geral da Justiça. Regime jurídico e disciplinar dos servidores.",
+            "Ética e Gestão no Serviço Público": "Princípios básicos da Administração Pública (legalidade, moralidade, interesse público, integridade). Deveres e responsabilidades do servidor.",
+            "Noções de Informática e Proteção de Dados": "Fundamentos de informática. Segurança da informação. Proteção de dados pessoais. Lei nº 13.709/2018 (LGPD) e Resolução TJ nº 3/2021.",
+            "Direitos Humanos e Acesso à Justiça": "Princípios básicos dos direitos humanos. Proteção internacional e constitucional. Acesso à justiça e garantias processuais. Grupos vulneráveis.",
+            "Noções de Direito Administrativo": "Organização administrativa (direta, indireta, centralizada, descentralizada). Princípios expressos e implícitos. Órgãos e agentes públicos. Poderes e Atos administrativos. Lei nº 14.133/2021 (Licitações). Estrutura administrativa do TJSC.",
+            "Noções de Direito Constitucional": "CF/88: Princípios fundamentais, Direitos e garantias fundamentais. Organização político-administrativa. Administração pública. Poder Judiciário (competências e estrutura do TJSC). Funções essenciais à Justiça. Conselho Nacional de Justiça (CNJ).",
+            "Noções de Direito Civil": "Lei de Introdução às Normas do Direito Brasileiro. Pessoas naturais e jurídicas. Bens. Fatos e negócios jurídicos. Obrigações e Contratos. Responsabilidade civil.",
+            "Noções de Direito Processual Civil": "CPC/2015. Princípio do devido processo legal, contraditório e ampla defesa. Pressupostos processuais. Jurisdição e Ação. Carta rogatória e auxílio direto. Competência.",
+            "Noções de Direito Penal": "Código Penal. Princípios da legalidade e anterioridade. Lei penal no tempo e espaço. Teoria do crime (ilicitude, culpabilidade). Crimes contra a pessoa, patrimônio e administração pública. Crimes hediondos. Abuso de autoridade. ECA. Resolução TJ n. 35/2025 (Competência varas criminais).",
+            "Noções de Direito Processual Penal": "CPP. Inquérito policial e Ação penal. Sujeitos do processo. Citações e intimações. Sentença. Processo comum e Instrução criminal. Tribunal do Júri. Prisão e liberdade provisória. Habeas corpus."
+        };
+
+        const getStorage = (key) => { try { return localStorage.getItem(key); } catch(e) { return null; } };
+        const setStorage = (key, val) => { try { localStorage.setItem(key, val); } catch(e) {} };
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const chaveSalva = getStorage('tjscApiKey');
+            if (chaveSalva) document.getElementById('apiKey').value = chaveSalva;
+        });
+
+        const getErroBank = () => { try { return JSON.parse(getStorage('tjscErroBank')) || []; } catch(e) { return []; } };
+        const saveErroBank = (bank) => { setStorage('tjscErroBank', JSON.stringify(bank)); };
+        
+        const getStats = () => { try { return JSON.parse(getStorage('tjscStats')) || {}; } catch(e) { return {}; } };
+        const saveStats = (stats) => { setStorage('tjscStats', JSON.stringify(stats)); };
+
+        let currentQuestions = [];
+        let currentIndex = 0;
+        let acertos = 0;
+
+        // --- SISTEMA DE BACKUP (DRIVE / LOCAL) ---
+        function exportarBackup() {
+            const dados = {
+                erros: getErroBank(),
+                stats: getStats()
+            };
+            const blob = new Blob([JSON.stringify(dados)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Backup_TJSC_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function importarBackup(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const dados = JSON.parse(e.target.result);
+                    if (dados.erros) saveErroBank(dados.erros);
+                    if (dados.stats) saveStats(dados.stats);
+                    alert("✅ Backup importado com sucesso! O seu histórico de erros e estatísticas foi atualizado.");
+                    location.reload();
+                } catch (err) {
+                    alert("❌ Erro ao ler o arquivo. Certifique-se de que é o arquivo .json correto.");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // --- DASHBOARD DE ESTATÍSTICAS ---
+        function mostrarDashboard() {
+            document.getElementById('config-panel').style.display = 'none';
+            document.getElementById('dashboard-panel').style.display = 'block';
+            
+            const stats = getStats();
+            const container = document.getElementById('stats-container');
+            
+            if (Object.keys(stats).length === 0) {
+                container.innerHTML = '<p>Ainda não respondeu a nenhuma questão. O seu progresso aparecerá aqui.</p>';
+                return;
+            }
+
+            let html = `<table><tr><th>Matéria</th><th>Resolvidas</th><th>Acertos</th><th>Aproveitamento</th></tr>`;
+            let totalGeral = 0, acertosGeral = 0;
+            const materias = Object.keys(stats).sort();
+
+            materias.forEach(mat => {
+                let s = stats[mat];
+                totalGeral += s.total;
+                acertosGeral += s.acertos;
+                let pct = s.total > 0 ? ((s.acertos / s.total) * 100).toFixed(1) : 0;
+                let corPct = pct >= 70 ? '#27ae60' : (pct >= 50 ? '#e67e22' : '#c0392b');
+
+                html += `<tr><td>${mat}</td><td>${s.total}</td><td>${s.acertos}</td><td style="color: ${corPct}; font-weight: bold;">${pct}%</td></tr>`;
+            });
+            
+            let pctGeral = totalGeral > 0 ? ((acertosGeral / totalGeral) * 100).toFixed(1) : 0;
+            html += `<tr class="tr-total"><td>TOTAL GERAL</td><td>${totalGeral}</td><td>${acertosGeral}</td><td>${pctGeral}%</td></tr></table>`;
+            container.innerHTML = html;
+        }
+
+        function fecharDashboard() {
+            document.getElementById('dashboard-panel').style.display = 'none';
+            document.getElementById('config-panel').style.display = 'block';
+        }
+
+        // --- MOTOR DO SIMULADO ---
+        async function iniciarSimulado() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const subject = document.getElementById('subject').value;
+            const totalQtd = parseInt(document.getElementById('qtd').value);
+            const errorMsg = document.getElementById('error-msg');
+            
+            errorMsg.style.display = 'none';
+            if (!apiKey) { errorMsg.innerHTML = "Insira a sua chave da API."; errorMsg.style.display = 'block'; return; }
+            if (totalQtd < 5 || totalQtd > 20) { errorMsg.innerHTML = "A quantidade deve ser entre 5 e 20."; errorMsg.style.display = 'block'; return; }
+
+            setStorage('tjscApiKey', apiKey);
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('config-panel').style.display = 'none';
+            currentIndex = 0; acertos = 0;
+
+            let erroBank = getErroBank();
+            let erroBankSubject = erroBank.filter(q => q.materia === subject);
+            let oldQtd = Math.min(Math.floor(totalQtd * 0.3), erroBankSubject.length);
+            let newQtd = totalQtd - oldQtd;
+            
+            let oldQuestionsToInclude = [];
+            for(let i = 0; i < oldQtd; i++) {
+                let randomIndex = Math.floor(Math.random() * erroBankSubject.length);
+                oldQuestionsToInclude.push(erroBankSubject[randomIndex]);
+                erroBankSubject.splice(randomIndex, 1);
+            }
+
+            try {
+                const newQuestions = await fetchGeminiQuestions(apiKey, subject, newQtd);
+                currentQuestions = [...oldQuestionsToInclude, ...newQuestions];
+                currentQuestions.sort(() => Math.random() - 0.5);
+
+                if (currentQuestions.length === 0) throw new Error("Nenhuma questão pôde ser gerada.");
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('quiz-panel').style.display = 'block';
+                renderCurrentQuestion();
+            } catch (error) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('config-panel').style.display = 'block';
+                errorMsg.innerHTML = "Erro ao processar as questões: " + error.message;
+                errorMsg.style.display = 'block';
+            }
+        }
+
+        async function fetchGeminiQuestions(apiKey, subject, qtd) {
+            if (qtd === 0) return [];
+            const conteudoProgramatico = editalTJSC[subject];
+            const prompt = `
+            Você é um examinador sênior da banca FGV, especialista no concurso do Tribunal de Justiça (Técnico Judiciário). Crie ${qtd} questões inéditas de múltipla escolha.
+            MATÉRIA E CONTEÚDO PERMITIDO: "${subject}" - "${conteudoProgramatico}".
+            
+            Diretrizes:
+            1. Casos hipotéticos ou interpretação densa.
+            2. Você DEVE explicar por que a correta está certa E por que as outras estão erradas no campo "comentario".
+            
+            Formato Obrigatório:
+            [
+              {
+                "materia": "${subject}",
+                "enunciado": "Texto...",
+                "opcoes": { "A": "...", "B": "...", "C": "...", "D": "...", "E": "..." },
+                "resposta_correta": "A",
+                "comentario": "Justificativa..."
+              }
+            ]`;
+
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: { temperature: 0.7, responseMimeType: "application/json" }
+                })
+            });
+
+            if (!response.ok) throw new Error("Falha na comunicação com a API.");
+            const data = await response.json();
+            const rawText = data.candidates[0].content.parts[0].text;
+            let questions = JSON.parse(rawText);
+            questions.forEach(q => q.id = 'q_' + Math.random().toString(36).substr(2, 9));
+            return questions;
+        }
+
+        function renderCurrentQuestion() {
+            const container = document.getElementById('question-container');
+            const progress = document.getElementById('progress');
+            progress.style.width = `${(currentIndex / currentQuestions.length) * 100}%`;
+
+            if (currentIndex >= currentQuestions.length) {
+                container.innerHTML = `
+                    <h2>Simulado Concluído! 🎯</h2>
+                    <p>Acertou <strong>${acertos}</strong> de <strong>${currentQuestions.length}</strong> questões.</p>
+                    <p>O seu progresso foi salvo automaticamente no seu navegador.</p>
+                `;
+                document.getElementById('btn-responder').style.display = 'none';
+                document.getElementById('btn-novo').style.display = 'block';
+                progress.style.width = '100%';
+                return;
+            }
+
+            const q = currentQuestions[currentIndex];
+            let html = `
+                <div class="question-block" id="block-${q.id}">
+                    <p style="color: #7f8c8d; font-weight: bold;">Questão ${currentIndex + 1} de ${currentQuestions.length} - ${q.materia}</p>
+                    <div class="enunciado">${q.enunciado}</div>
+            `;
+            
+            for (let [key, value] of Object.entries(q.opcoes)) {
+                html += `
+                    <label class="option" id="label-${q.id}-${key}">
+                        <input type="radio" name="${q.id}" value="${key}">
+                        <strong>${key})</strong> ${value}
+                    </label>
+                `;
+            }
+            html += `<div class="feedback" id="feedback-${q.id}"></div></div>`;
+            container.innerHTML = html;
+            document.getElementById('btn-responder').style.display = 'block';
+            document.getElementById('btn-proxima').style.display = 'none';
+        }
+
+        function verificarResposta() {
+            const q = currentQuestions[currentIndex];
+            const selected = document.querySelector(`input[name="${q.id}"]:checked`);
+            const feedbackDiv = document.getElementById(`feedback-${q.id}`);
+            let erroBank = getErroBank(), stats = getStats();
+
+            if (!selected) { alert("Por favor, selecione uma alternativa."); return; }
+
+            if (!stats[q.materia]) stats[q.materia] = { total: 0, acertos: 0 };
+            stats[q.materia].total++;
+
+            document.querySelectorAll(`input[name="${q.id}"]`).forEach(el => el.disabled = true);
+            feedbackDiv.style.display = 'block';
+            document.getElementById(`label-${q.id}-${q.resposta_correta}`).style.backgroundColor = '#d4edda';
+            document.getElementById(`label-${q.id}-${q.resposta_correta}`).style.borderColor = '#c3e6cb';
+
+            if (selected.value === q.resposta_correta) {
+                acertos++; stats[q.materia].acertos++;
+                feedbackDiv.className = 'feedback correct';
+                feedbackDiv.innerHTML = `<strong>✅ Resposta Correta!</strong><br><br><strong>Análise:</strong><br>${q.comentario}`;
+                let index = erroBank.findIndex(err => err.id === q.id);
+                if (index > -1) erroBank.splice(index, 1);
+            } else {
+                document.getElementById(`label-${q.id}-${selected.value}`).style.backgroundColor = '#f8d7da';
+                document.getElementById(`label-${q.id}-${selected.value}`).style.borderColor = '#f5c6cb';
+                feedbackDiv.className = 'feedback incorrect';
+                feedbackDiv.innerHTML = `<strong>❌ Resposta Incorreta.</strong> Marcou ${selected.value}, mas a correta era <strong>${q.resposta_correta}</strong>.<br><br><strong>Análise:</strong><br>${q.comentario}`;
+                if (!erroBank.find(err => err.enunciado === q.enunciado)) erroBank.push(q);
+            }
+
+            saveErroBank(erroBank); saveStats(stats);
+            document.getElementById('btn-responder').style.display = 'none';
+            document.getElementById('btn-proxima').style.display = 'block';
+        }
+
+        function proximaQuestao() { currentIndex++; renderCurrentQuestion(); }
+    </script>
+</body>
+</html>
