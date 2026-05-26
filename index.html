@@ -252,38 +252,57 @@
             }
         }
 
-        async function fetchGeminiQuestions(apiKey, subject, qtd) {
+                async function fetchGeminiQuestions(apiKey, subject, qtd) {
             if (qtd === 0) return [];
             const conteudoProgramatico = editalTJSC[subject];
             const prompt = `
-            Você é um examinador sênior da banca FGV, especialista no concurso do Tribunal de Justiça (Técnico Judiciário). Crie ${qtd} questões inéditas de múltipla escolha.
+            Aja como um examinador sénior, meticuloso e "carrasco" da banca FGV (Fundação Getulio Vargas), especialista no concurso do Tribunal de Justiça para o cargo de Técnico Judiciário. 
+            A sua missão é criar ${qtd} questões inéditas de múltipla escolha.
             MATÉRIA E CONTEÚDO PERMITIDO: "${subject}" - "${conteudoProgramatico}".
             
-            Diretrizes:
-            1. Casos hipotéticos ou interpretação densa.
-            2. Você DEVE explicar por que a correta está certa E por que as outras estão erradas no campo "comentario".
+            DIRETRIZES OBRIGATÓRIAS (ESTILO FGV):
+            1. ENUNCIADOS COMPLEXOS E DISTRATORES: Crie histórias longas e casos hipotéticos cheios de nomes, datas, cargos e detalhes burocráticos irrelevantes. Use essas informações apenas para distrair e cansar o candidato. Misture esses dados inúteis com o cerne jurídico/gramatical da questão.
+            2. COMANDOS VARIADOS: Alterne aleatoriamente o comando final da questão. Algumas vezes exija que o candidato encontre a alternativa CORRETA, e outras vezes exija expressamente a INCORRETA (ex: "É correto afirmar, EXCETO", "Assinale a alternativa incorreta"). Deixe o comando bem claro no final do enunciado.
+            3. ALTERNATIVAS "PEGADINHA": As opções (A a E) devem ser muito parecidas entre si. A diferença entre a certa e a errada deve estar, muitas vezes, escondida numa única palavra sorrateira (ex: "prescindível" vs "imprescindível", "pode" vs "deve", troca de um prazo, alteração de uma competência).
+            4. JUSTIFICATIVA DIDÁTICA: No campo "comentario", você DEVE explicar o detalhe subtil que torna a opção certa E apontar exatamente a "palavrinha" ou o erro que invalida cada uma das outras alternativas.
             
-            Formato Obrigatório:
+            Formato Obrigatório de Retorno (APENAS JSON):
             [
               {
                 "materia": "${subject}",
-                "enunciado": "Texto...",
+                "enunciado": "Texto longo da questão com distratores e o comando final...",
                 "opcoes": { "A": "...", "B": "...", "C": "...", "D": "...", "E": "..." },
                 "resposta_correta": "A",
-                "comentario": "Justificativa..."
+                "comentario": "Justificativa minuciosa da correta e das incorretas..."
               }
             ]`;
 
-            // A RETORNO DA CONFIGURAÇÃO INICIAL (A que funcionava perfeitamente e gratuitamente)
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+            // Mantendo o 1.5-flash pela velocidade e limites generosos
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     contents: [{ parts: [{ text: prompt }] }],
                     generationConfig: { 
-                        temperature: 0.7, 
-                        responseMimeType: "application/json" // Proteção ativada para garantir que o formato devolvido é limpo
+                        temperature: 0.85, // Temperatura ligeiramente mais alta para forçar a criatividade nas pegadinhas e distratores
+                        responseMimeType: "application/json" 
                     }
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error ? errorData.error.message : "Falha na comunicação com a API do Google.");
+            }
+            
+            const data = await response.json();
+            let rawText = data.candidates[0].content.parts[0].text;
+            
+            let questions = JSON.parse(rawText);
+            questions.forEach(q => q.id = 'q_' + Math.random().toString(36).substr(2, 9));
+            return questions;
+        }
+
                 })
             });
 
