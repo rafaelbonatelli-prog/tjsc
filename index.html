@@ -247,7 +247,7 @@
             }
         }
 
-        async function fetchGeminiQuestions(apiKey, subject, qtd) {
+                async function fetchGeminiQuestions(apiKey, subject, qtd) {
             if (qtd === 0) return [];
             const conteudoProgramatico = editalTJSC[subject];
             
@@ -258,18 +258,19 @@
             INSTRUÇÕES ESTILÍSTICAS FGV:
             1. ENUNCIADO CANSATIVO: Crie um caso hipotético longo com detalhes irrelevantes para distrair.
             2. COMANDOS MISTOS: Alterne entre pedir a CORRETA e a INCORRETA/EXCEÇÃO.
-            3. PEGADINHAS: As alternativas devem ser extremamente parecidas. A diferença deve morar numa única palavra (ex: "prescinde", "vinculado", prazos errados).
-            4. TEMA CENTRAL: Identifique em 3 a 5 palavras qual é o núcleo teórico cobrado na questão (desconsiderando a historinha).
+            3. PEGADINHAS: As alternativas devem ser parecidas. A diferença deve morar numa única palavra.
+            4. TEMA CENTRAL: Identifique em 3 a 5 palavras o núcleo teórico da questão.
+            5. GABARITO EXAUSTIVO (OBRIGATÓRIO): No campo "comentario", você DEVE analisar uma por uma das 5 alternativas (A, B, C, D e E), explicando por que a certa é certa e qual o erro exato de CADA UMA das outras.
             
             EXEMPLO DE PADRÃO ESPERADO JSON:
             [
               {
                 "materia": "${subject}",
                 "tema_central": "Exigibilidade do Ato Administrativo",
-                "enunciado": "No dia 15 de março... (história longa)... Considerando a lei, assinale a INCORRETA:",
+                "enunciado": "No dia 15 de março... (história longa)... assinale a INCORRETA:",
                 "opcoes": { "A": "...", "B": "...", "C": "...", "D": "...", "E": "..." },
                 "resposta_correta": "A",
-                "comentario": "A correta é a A porque... A letra B está errada pois..."
+                "comentario": "Alternativa A (Correta): Porque...\\nAlternativa B (Incorreta): O erro está na palavra...\\nAlternativa C (Incorreta): O prazo certo é...\\nAlternativa D (Incorreta): Porque...\\nAlternativa E (Incorreta): Porque..."
               }
             ]`;
 
